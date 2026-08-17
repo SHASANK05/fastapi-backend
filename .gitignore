@@ -5,6 +5,7 @@ _pycache_/
 # SQLite Database
 sql_app.db
 *.sqlite3
+*.db
 
 # Environment
 .env
