@@ -2,14 +2,25 @@ import enum
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, Text, Enum, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-
 from app.core.database import Base
-
-
 class RoleEnum(str, enum.Enum):
     ADMIN = "admin"
     STAFF = "staff"
     CUSTOMER = "customer"
+
+
+class OrderStatusEnum(str, enum.Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+
+class PaymentStatusEnum(str, enum.Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    FAILED = "failed"
 
 
 class User(Base):
@@ -22,8 +33,8 @@ class User(Base):
     role = Column(Enum(RoleEnum), default=RoleEnum.CUSTOMER, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # 1-to-1 relationship: Each user has their own cart
     cart = relationship("Cart", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
 
 
 class Product(Base):
@@ -38,8 +49,8 @@ class Product(Base):
     popularity = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship to cart items
     cart_items = relationship("CartItem", back_populates="product")
+    order_items = relationship("OrderItem", back_populates="product")
 
 
 class Cart(Base):
@@ -49,7 +60,6 @@ class Cart(Base):
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationships
     user = relationship("User", back_populates="cart")
     items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
 
@@ -62,6 +72,50 @@ class CartItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
 
-    # Relationships
     cart = relationship("Cart", back_populates="items")
     product = relationship("Product", back_populates="cart_items")
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    total = Column(Float, nullable=False)
+    tax_amount = Column(Float, default=0.0)
+    payment_status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.PENDING, nullable=False)
+    order_status = Column(Enum(OrderStatusEnum), default=OrderStatusEnum.PENDING, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="orders")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    payment = relationship("Payment", back_populates="order", uselist=False, cascade="all, delete-orphan")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Float, nullable=False)
+    item_total = Column(Float, nullable=False)
+
+    order = relationship("Order", back_populates="items")
+    product = relationship("Product", back_populates="order_items")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), unique=True, nullable=False)
+    amount = Column(Float, nullable=False)
+    currency = Column(String(10), default="inr", nullable=False)
+    payment_method = Column(String(50), default="stripe", nullable=False)
+    transaction_id = Column(String(255), nullable=True)
+    status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.PENDING, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    order = relationship("Order", back_populates="payment")
