@@ -1,0 +1,19 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments & sensitive files
+.env
+venv/
+.venv/
+env/
+
+# SQLite databases
+*.db
+*.sqlite3
+ecommerce.db
+
+# VS Code / IDE configs
+.vscode/
+.idea/

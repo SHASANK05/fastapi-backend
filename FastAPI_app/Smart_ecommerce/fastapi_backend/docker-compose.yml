@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: ecommerce_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  db:
+    image: mysql:8.0
+    container_name: ecommerce_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: ecommerce_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: always
+
+  api:
+    build: .
+    container_name: ecommerce_api
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:password@db:3306/ecommerce_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    restart: on-failure
+
+  celery_worker:
+    build: .
+    container_name: ecommerce_celery_worker
+    command: celery -A core.celery_app worker --loglevel=info -P solo
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:password@db:3306/ecommerce_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - .:/app
+    restart: on-failure
+
+volumes:
+  mysql_data:
