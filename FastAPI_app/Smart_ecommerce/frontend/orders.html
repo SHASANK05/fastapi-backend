@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SmartCart - My Orders</title>
+  <style>
+    body { background-color: #12131a; color: #fff; font-family: sans-serif; margin: 0; padding: 20px 40px; }
+    .navbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2a2b36; padding-bottom: 15px; margin-bottom: 25px; }
+    .logo { font-size: 24px; font-weight: bold; color: #ffb703; }
+    .nav-right { display: flex; align-items: center; gap: 20px; }
+    .nav-links a { color: #aaa; text-decoration: none; margin-left: 20px; font-weight: 500; }
+    .nav-links a.active, .nav-links a:hover { color: #fff; }
+
+    /* Notification Dark Theme Styles */
+    .notification-container { position: relative; display: inline-block; }
+    #notification-btn {
+      position: relative;
+      background: #1f2029;
+      border: 1px solid #333;
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    #notification-btn:hover { background: #2b2c3a; }
+    #notification-badge {
+      display: none;
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background-color: #e63946;
+      color: white;
+      border-radius: 9999px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: bold;
+      box-shadow: 0 0 0 2px #12131a;
+    }
+    #notification-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 48px;
+      width: 320px;
+      max-height: 400px;
+      overflow-y: auto;
+      background: #1c1d26;
+      border: 1px solid #2b2c3a;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 1000;
+      padding: 14px;
+    }
+    .notif-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #2a2b36;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .notif-item {
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: background 0.2s ease;
+    }
+    .notif-item.unread {
+      background-color: #262a3d;
+      border: 1px solid #3d4a75;
+    }
+    .notif-item.read {
+      background-color: #16171f;
+      border: 1px solid #232430;
+      opacity: 0.7;
+    }
+    .notif-item:hover {
+      opacity: 1;
+    }
+
+    /* Orders Content Styles */
+    .container { max-width: 800px; margin: 0 auto; }
+    .order-card { background: #1c1d26; padding: 20px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #2b2c3a; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 12px; }
+    .status-delivered { background: #1b4332; color: #74c69d; }
+    .status-pending { background: #4a3800; color: #ffb703; }
+    .status-cancelled { background: #4a1518; color: #f28482; }
+    .btn-return { background-color: #e63946; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-return:disabled { background-color: #444; color: #888; cursor: not-allowed; }
+
+    /* Modal Styles */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 2000; }
+    .modal-box { background: #1c1d26; color: #fff; padding: 25px; border-radius: 8px; width: 400px; max-width: 90%; border: 1px solid #2b2c3a; }
+    .modal-box select, .modal-box textarea { width: 100%; margin-top: 8px; margin-bottom: 15px; padding: 8px; box-sizing: border-box; background: #12131a; border: 1px solid #333; color: #fff; border-radius: 4px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .btn-cancel { background: #333; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <div class="logo">SmartCart</div>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="products.html">Products</a>
+        <a href="orders.html" class="active">Orders</a>
+        <a href="cart.html">Cart</a>
+      </div>
+
+      <div class="notification-container">
+        <button id="notification-btn" onclick="toggleNotificationDropdown(event)">
+          🔔
+          <span id="notification-badge">0</span>
+        </button>
+
+        <div id="notification-dropdown">
+          <div class="notif-header">
+            <strong style="font-size: 13px; color: #fff;">Notifications</strong>
+            <button onclick="markAllNotificationsRead()" style="background: none; border: none; color: #ffb703; cursor: pointer; font-size: 12px; font-weight: 600;">
+              Mark all read
+            </button>
+          </div>
+          <div id="notification-list">
+            <p style="font-size: 12px; color: #777; text-align: center; margin: 12px 0;">Loading...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Order History</h2>
+    <div id="ordersList">
+      <p style="color: #888;">Loading orders...</p>
+    </div>
+  </div>
+
+  <!-- Return Request Modal -->
+  <div id="returnModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-top: 0;">Request Return</h3>
+      <p style="color: #aaa;">Order ID: #<span id="modalOrderId"></span></p>
+      
+      <label for="returnReason" style="font-size: 13px;">Reason for Return *</label>
+      <select id="returnReason" required>
+        <option value="">Select a reason</option>
+        <option value="Defective / Not working">Defective / Not working</option>
+        <option value="Damaged product">Damaged product</option>
+        <option value="Wrong item received">Wrong item received</option>
+        <option value="Item not as described">Item not as described</option>
+      </select>
+
+      <label for="returnComment" style="font-size: 13px;">Additional Comments</label>
+      <textarea id="returnComment" rows="3" placeholder="Optional details..."></textarea>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" onclick="closeReturnModal()">Cancel</button>
+        <button type="button" class="btn-return" onclick="submitReturnRequest()">Submit Return</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://127.0.0.1:8000";
+    let activeOrderId = null;
+    let badgeInterval = null;
+
+    function getAuthHeaders() {
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+      return {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      };
+    }
+
+    /* --- Notification System Logic --- */
+    async function updateNotificationBadge() {
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      if (!token) {
+        stopNotificationPolling();
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/notifications/unread-count`, {
+          headers: getAuthHeaders()
+        });
+
+        if (res.status === 401) {
+          stopNotificationPolling();
+          const badge = document.getElementById("notification-badge");
+          if (badge) badge.style.display = "none";
+          return;
+        }
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const badge = document.getElementById("notification-badge");
+
+        if (badge) {
+          if (data.unread_count > 0) {
+            badge.innerText = data.unread_count;
+            badge.style.display = "inline-block";
+          } else {
+            badge.style.display = "none";
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch notification badge:", err);
+      }
+    }
+
+    async function fetchNotifications() {
+      const container = document.getElementById("notification-list");
+      if (!container) return;
+
+      try {
+        const res = await fetch(`${API}/notifications?unread_only=false`, {
+          headers: getAuthHeaders()
+        });
+
+        if (res.status === 401) {
+          container.innerHTML = `<p style="font-size: 12px; color: #e63946; text-align: center;">Please log in to view notifications.</p>`;
+          stopNotificationPolling();
+          return;
+        }
+
+        if (!res.ok) {
+          container.innerHTML = `<p style="font-size: 12px; color: #e63946; text-align: center;">Failed to load notifications.</p>`;
+          return;
+        }
+
+        const notifications = await res.json();
+        if (notifications.length === 0) {
+          container.innerHTML = `<p style="font-size: 12px; color: #777; text-align: center; margin: 12px 0;">No notifications found.</p>`;
+          return;
+        }
+
+        container.innerHTML = notifications.map(item => `
+          <div class="notif-item ${item.is_read ? 'read' : 'unread'}" onclick="markSingleRead(${item.id})">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 11px; font-weight: bold; color: ${item.is_read ? '#aaa' : '#ffb703'};">
+                ${item.notification_type || "Notification"}
+              </span>
+              <span style="font-size: 10px; color: #666;">
+                ${item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+              </span>
+            </div>
+            <div style="font-size: 12px; color: #ddd; margin-top: 4px; line-height: 1.4;">
+              ${item.message}
+            </div>
+          </div>
+        `).join("");
+      } catch (err) {
+        container.innerHTML = `<p style="font-size: 12px; color: #e63946; text-align: center;">Network error connecting to API.</p>`;
+      }
+    }
+
+    async function markSingleRead(id) {
+      try {
+        await fetch(`${API}/notifications/${id}/read`, {
+          method: "PATCH",
+          headers: getAuthHeaders()
+        });
+        await updateNotificationBadge();
+        await fetchNotifications();
+      } catch (err) {
+        console.error("Failed to mark notification read:", err);
+      }
+    }
+
+    async function markAllNotificationsRead() {
+      try {
+        await fetch(`${API}/notifications/read-all`, {
+          method: "PATCH",
+          headers: getAuthHeaders()
+        });
+        await updateNotificationBadge();
+        await fetchNotifications();
+      } catch (err) {
+        console.error("Failed to mark all read:", err);
+      }
+    }
+
+    function toggleNotificationDropdown(e) {
+      if (e) e.stopPropagation();
+      const dropdown = document.getElementById("notification-dropdown");
+      if (!dropdown) return;
+
+      const isVisible = dropdown.style.display === "block";
+      if (isVisible) {
+        dropdown.style.display = "none";
+      } else {
+        dropdown.style.display = "block";
+        fetchNotifications();
+      }
+    }
+
+    document.addEventListener("click", (e) => {
+      const container = document.querySelector(".notification-container");
+      const dropdown = document.getElementById("notification-dropdown");
+      if (container && dropdown && !container.contains(e.target)) {
+        dropdown.style.display = "none";
+      }
+    });
+
+    function startNotificationPolling() {
+      stopNotificationPolling();
+      updateNotificationBadge();
+      badgeInterval = setInterval(updateNotificationBadge, 30000);
+    }
+
+    function stopNotificationPolling() {
+      if (badgeInterval) {
+        clearInterval(badgeInterval);
+        badgeInterval = null;
+      }
+    }
+
+    /* --- Orders & Returns Logic --- */
+    function isWithin7Days(createdAtStr) {
+      if (!createdAtStr) return true;
+      const orderDate = new Date(createdAtStr);
+      const now = new Date();
+      const diffInDays = (now - orderDate) / (1000 * 60 * 60 * 24);
+      return diffInDays <= 7;
+    }
+
+    function openReturnModal(orderId) {
+      activeOrderId = orderId;
+      document.getElementById('modalOrderId').innerText = orderId;
+      document.getElementById('returnModal').style.display = 'flex';
+    }
+
+    function closeReturnModal() {
+      activeOrderId = null;
+      document.getElementById('returnReason').value = '';
+      document.getElementById('returnComment').value = '';
+      document.getElementById('returnModal').style.display = 'none';
+    }
+
+    async function submitReturnRequest() {
+      const reason = document.getElementById('returnReason').value;
+      const comment = document.getElementById('returnComment').value;
+
+      if (!reason) {
+        alert('Please select a return reason.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/orders/${activeOrderId}/return`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ reason, comment })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert('Return request submitted successfully!');
+          closeReturnModal();
+          await updateNotificationBadge();
+          loadOrders();
+        } else {
+          alert(data.detail || 'Failed to submit return request');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('An error occurred while connecting to the server.');
+      }
+    }
+
+    async function loadOrders() {
+      const container = document.getElementById("ordersList");
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+
+      if (!token) {
+        container.innerHTML = `<p style="color: #e63946;">Please log in from Products page or Swagger to view orders.</p>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/orders`, {
+          headers: getAuthHeaders()
+        });
+
+        if (!res.ok) {
+          container.innerHTML = `<p style="color: #e63946;">Failed to load orders.</p>`;
+          return;
+        }
+
+        const orders = await res.json();
+        if (orders.length === 0) {
+          container.innerHTML = `<p style="color: #888;">No orders placed yet.</p>`;
+          return;
+        }
+
+        container.innerHTML = orders.map(order => {
+          const currentOrderId = order.id ?? order.order_id ?? 'N/A';
+          const orderTotal = order.grand_total ?? order.total_amount ?? order.total_price ?? order.total ?? 0;
+          const statusVal = (order.order_status || order.status || 'Pending');
+          const eligible = isWithin7Days(order.created_at) && statusVal.toLowerCase() !== 'cancelled';
+          const badgeClass = statusVal.toLowerCase() === 'delivered' ? 'status-delivered' :
+                             statusVal.toLowerCase() === 'cancelled' ? 'status-cancelled' : 'status-pending';
+
+          return `
+            <div class="order-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                  <strong style="font-size: 16px;">Order #${currentOrderId}</strong>
+                  <span style="font-size: 12px; color: #888; margin-left: 10px;">
+                    ${order.created_at ? new Date(order.created_at).toLocaleDateString() : ''}
+                  </span>
+                </div>
+                <span class="status-badge ${badgeClass}">${statusVal}</span>
+              </div>
+              <div style="font-size: 18px; font-weight: bold; color: #ffb703; margin-bottom: 12px;">
+                ₹${Number(orderTotal).toFixed(2)}
+              </div>
+              <div style="display: flex; justify-content: flex-end;">
+                <button class="btn-return" ${eligible ? '' : 'disabled'} onclick="openReturnModal(${currentOrderId})">
+                  ${eligible ? 'Request Return' : 'Return Ineligible'}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<p style="color: #e63946;">Error connecting to order service.</p>`;
+      }
+    }
+
+    // Initialize on page load
+    loadOrders();
+    startNotificationPolling();
+  </script>
+</body>
+</html>

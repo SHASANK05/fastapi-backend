@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SmartCart - Products</title>
+  <style>
+    body { background-color: #12131a; color: #fff; font-family: sans-serif; margin: 0; padding: 20px 40px; }
+    .navbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2a2b36; padding-bottom: 15px; margin-bottom: 25px; }
+    .logo { font-size: 24px; font-weight: bold; color: #ffb703; }
+    .nav-right { display: flex; align-items: center; gap: 20px; }
+    .nav-links a { color: #aaa; text-decoration: none; margin-left: 20px; font-weight: 500; }
+    .nav-links a.active, .nav-links a:hover { color: #fff; }
+    
+    /* Notification Dark Theme Styles */
+    .notification-container { position: relative; display: inline-block; }
+    #notification-btn {
+      position: relative;
+      background: #1f2029;
+      border: 1px solid #333;
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    #notification-btn:hover { background: #2b2c3a; }
+    #notification-badge {
+      display: none;
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background-color: #e63946;
+      color: white;
+      border-radius: 9999px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: bold;
+      box-shadow: 0 0 0 2px #12131a;
+    }
+    #notification-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 48px;
+      width: 320px;
+      max-height: 400px;
+      overflow-y: auto;
+      background: #1c1d26;
+      border: 1px solid #2b2c3a;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 1000;
+      padding: 14px;
+    }
+    .notif-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #2a2b36;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .notif-item {
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: background 0.2s ease;
+    }
+    .notif-item.unread {
+      background-color: #262a3d;
+      border: 1px solid #3d4a75;
+    }
+    .notif-item.read {
+      background-color: #16171f;
+      border: 1px solid #232430;
+      opacity: 0.7;
+    }
+    .notif-item:hover { opacity: 1; }
+
+    .filters { display: flex; gap: 15px; align-items: center; margin-bottom: 25px; }
+    select, input, textarea { background: #1f2029; border: 1px solid #333; color: white; padding: 8px 12px; border-radius: 6px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+    .card { background: #1c1d26; border-radius: 10px; padding: 20px; border: 1px solid #2b2c3a; display: flex; flex-direction: column; justify-content: space-between; }
+    .card h3 { margin: 0 0 8px 0; font-size: 18px; }
+    .card p { color: #888; font-size: 13px; margin: 0 0 12px 0; }
+    .price { font-size: 20px; font-weight: bold; color: #ffb703; margin-bottom: 5px; }
+    .meta { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 12px; }
+    .rating-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #ffb703; margin-bottom: 8px; font-weight: bold; }
+    .btn-add { background: #ffb703; color: #000; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 8px; }
+    .btn-add:hover { background: #e0a100; }
+    .btn-reviews { background: transparent; border: 1px solid #444; color: #bbb; padding: 7px; border-radius: 6px; font-size: 12px; cursor: pointer; width: 100%; }
+    .btn-reviews:hover { background: #2b2c3a; color: #fff; }
+
+    /* Recommendation Section Styling */
+    .rec-section { margin-bottom: 35px; padding: 20px; background: #181924; border-radius: 10px; border: 1px solid #2f3245; }
+    .rec-section h3 { margin-top: 0; margin-bottom: 15px; color: #ffb703; font-size: 18px; }
+    .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+    .rec-card { background: #202230; border: 1px solid #36394d; padding: 14px; border-radius: 8px; font-size: 13px; display: flex; flex-direction: column; justify-content: space-between; }
+    .rec-card h4 { margin: 0 0 6px 0; font-size: 14px; color: #fff; }
+
+    /* Review Modal */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 2000; }
+    .modal-box { background: #1c1d26; color: #fff; padding: 25px; border-radius: 8px; width: 480px; max-width: 90%; max-height: 85vh; overflow-y: auto; border: 1px solid #2b2c3a; }
+    .review-bubble { background: #12131a; border: 1px solid #2b2c3a; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+    .review-bubble .stars { color: #ffb703; font-size: 13px; margin-bottom: 4px; }
+    .review-bubble .comment { font-size: 13px; color: #ddd; }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <div class="logo">SmartCart</div>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="products.html" class="active">Products</a>
+        <a href="orders.html">Orders</a>
+        <a href="cart.html">Cart</a>
+      </div>
+
+      <!-- Notification Bell -->
+      <div class="notification-container">
+        <button id="notification-btn" onclick="toggleNotificationDropdown(event)">
+          🔔
+          <span id="notification-badge">0</span>
+        </button>
+
+        <div id="notification-dropdown">
+          <div class="notif-header">
+            <strong style="font-size: 13px; color: #fff;">Notifications</strong>
+            <button onclick="markAllNotificationsRead()" style="background: none; border: none; color: #ffb703; cursor: pointer; font-size: 12px; font-weight: 600;">
+              Mark all read
+            </button>
+          </div>
+          <div id="notification-list">
+            <p style="font-size: 12px; color: #777; text-align: center; margin: 12px 0;">Loading...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommended For You Section -->
+  <div class="rec-section" id="recommendedSection" style="display: none;">
+    <h3>✨ Recommended For You</h3>
+    <div class="rec-grid" id="recommendedGrid"></div>
+  </div>
+
+  <h2>Products</h2>
+  <div class="filters">
+    <select id="catFilter" onchange="loadProducts()">
+      <option value="">All Categories</option>
+      <option value="Electronics">Electronics</option>
+      <option value="Clothing">Clothing</option>
+      <option value="Fitness">Fitness</option>
+    </select>
+    <label><input type="checkbox" id="inStock" onchange="loadProducts()"> In stock only</label>
+  </div>
+
+  <div class="grid" id="productGrid"></div>
+
+  <!-- Review Modal -->
+  <div id="reviewModal" class="modal-overlay">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 id="modalProductName" style="margin: 0;">Product Reviews</h3>
+        <button onclick="closeReviewModal()" style="background:none; border:none; color:#aaa; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <div id="reviewSummary" style="font-size: 14px; margin-bottom: 15px; color: #ffb703; font-weight: bold;"></div>
+
+      <div id="modalReviewsList" style="margin-bottom: 20px; max-height: 180px; overflow-y: auto;">
+        <p style="color: #777; font-size: 12px;">Loading reviews...</p>
+      </div>
+
+      <!-- Similar Products Section -->
+      <div id="similarContainer" style="margin-bottom: 20px; border-top: 1px solid #2b2c3a; padding-top: 15px; display: none;">
+        <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #ffb703;">Similar Products</h4>
+        <div class="rec-grid" id="similarGrid"></div>
+      </div>
+
+      <!-- Add Review Form -->
+      <div style="border-top: 1px solid #2b2c3a; padding-top: 15px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 14px;">Leave a Review</h4>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <select id="reviewRating" style="width: 120px;">
+            <option value="5">★★★★★ (5)</option>
+            <option value="4">★★★★☆ (4)</option>
+            <option value="3">★★★☆☆ (3)</option>
+            <option value="2">★★☆☆☆ (2)</option>
+            <option value="1">★☆☆☆☆ (1)</option>
+          </select>
+        </div>
+        <textarea id="reviewComment" rows="3" placeholder="Share your experience with this item..." style="width: 100%; box-sizing: border-box; margin-bottom: 10px;"></textarea>
+        <button class="btn-add" onclick="submitReviewFromModal()">Submit Review</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://127.0.0.1:8000";
+    let activeReviewProductId = null;
+    let badgeInterval = null;
+
+    function getAuthHeaders() {
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+      return {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      };
+    }
+
+    /* --- Notification Polling & Actions --- */
+    async function updateNotificationBadge() {
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      if (!token) {
+        stopNotificationPolling();
+        return;
+      }
+
+      try {
+        const res = await fetch(API + "/notifications/unread-count", {
+          headers: getAuthHeaders()
+        });
+
+        if (res.status === 401) {
+          stopNotificationPolling();
+          const badge = document.getElementById("notification-badge");
+          if (badge) badge.style.display = "none";
+          return;
+        }
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const badge = document.getElementById("notification-badge");
+
+        if (badge) {
+          if (data.unread_count > 0) {
+            badge.innerText = data.unread_count;
+            badge.style.display = "inline-block";
+          } else {
+            badge.style.display = "none";
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch notification badge:", err);
+      }
+    }
+
+    async function fetchNotifications() {
+      const container = document.getElementById("notification-list");
+      if (!container) return;
+
+      try {
+        const res = await fetch(API + "/notifications?unread_only=false", {
+          headers: getAuthHeaders()
+        });
+
+        if (res.status === 401) {
+          container.innerHTML = `<p style="font-size: 12px; color: #e63946; text-align: center;">Please log in to view notifications.</p>`;
+          stopNotificationPolling();
+          return;
+        }
+
+        if (!res.ok) {
+          container.innerHTML = `<p style="font-size: 12px; color: #e63946; text-align: center;">Failed to load notifications.</p>`;
+          return;
+        }
+
+        const notifications = await res.json();
+        if (notifications.length === 0) {
+          container.innerHTML = `<p style="font-size: 12px; color: #777; text-align: center; margin: 12px 0;">No notifications found.</p>`;
+          return;
+        }
+
+        container.innerHTML = notifications.map(item => `
+          <div class="notif-item ${item.is_read ? 'read' : 'unread'}" onclick="markSingleRead(${item.id})">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 11px; font-weight: bold; color: ${item.is_read ? '#aaa' : '#ffb703'};">
+                ${item.notification_type || "Notification"}
+              </span>
+              <span style="font-size: 10px; color: #666;">
+                ${item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+              </span>
+            </div>
+            <div style="font-size: 12px; color: #ddd; margin-top: 4px; line-height: 1.4;">
+              ${item.message}
+            </div>
+          </div>
+        `).join("");
+      } catch (err) {
+        container.innerHTML = `<p style="font-size: 12px; color: #e63946; text-align: center;">Network error connecting to API.</p>`;
+      }
+    }
+
+    async function markSingleRead(id) {
+      try {
+        await fetch(API + `/notifications/${id}/read`, {
+          method: "PATCH",
+          headers: getAuthHeaders()
+        });
+        await updateNotificationBadge();
+        await fetchNotifications();
+      } catch (err) {
+        console.error("Failed to mark notification read:", err);
+      }
+    }
+
+    async function markAllNotificationsRead() {
+      try {
+        await fetch(API + "/notifications/read-all", {
+          method: "PATCH",
+          headers: getAuthHeaders()
+        });
+        await updateNotificationBadge();
+        await fetchNotifications();
+      } catch (err) {
+        console.error("Failed to mark all read:", err);
+      }
+    }
+
+    function toggleNotificationDropdown(e) {
+      if (e) e.stopPropagation();
+      const dropdown = document.getElementById("notification-dropdown");
+      if (!dropdown) return;
+
+      const isVisible = dropdown.style.display === "block";
+      if (isVisible) {
+        dropdown.style.display = "none";
+      } else {
+        dropdown.style.display = "block";
+        fetchNotifications();
+      }
+    }
+
+    document.addEventListener("click", (e) => {
+      const container = document.querySelector(".notification-container");
+      const dropdown = document.getElementById("notification-dropdown");
+      if (container && dropdown && !container.contains(e.target)) {
+        dropdown.style.display = "none";
+      }
+    });
+
+    function startNotificationPolling() {
+      stopNotificationPolling();
+      updateNotificationBadge();
+      badgeInterval = setInterval(updateNotificationBadge, 30000);
+    }
+
+    function stopNotificationPolling() {
+      if (badgeInterval) {
+        clearInterval(badgeInterval);
+        badgeInterval = null;
+      }
+    }
+
+    /* --- Recommendations & Similar Items --- */
+    async function loadUserRecommendations() {
+      try {
+        let res = await fetch(API + "/recommendations/1");
+        if (!res.ok) {
+          res = await fetch(API + "/recommendations/trending");
+        }
+        if (!res.ok) return;
+
+        const recs = await res.json();
+        const recSection = document.getElementById("recommendedSection");
+        const recGrid = document.getElementById("recommendedGrid");
+
+        if (recs && recs.length > 0) {
+          recSection.style.display = "block";
+          recGrid.innerHTML = recs.slice(0, 4).map(p => `
+            <div class="rec-card">
+              <h4>${p.name}</h4>
+              <div style="color: #ffb703; font-weight: bold; margin-bottom: 8px;">₹${p.price}</div>
+              <button class="btn-add" style="padding: 6px; font-size: 11px;" onclick="addToCart(${p.id})">Add to Cart</button>
+            </div>
+          `).join("");
+        }
+      } catch (err) {
+        console.log("Could not load recommendations:", err);
+      }
+    }
+
+    async function loadSimilarProducts(productId) {
+      const simContainer = document.getElementById("similarContainer");
+      const simGrid = document.getElementById("similarGrid");
+      simContainer.style.display = "none";
+
+      try {
+        const res = await fetch(API + `/products/${productId}/similar`);
+        if (!res.ok) return;
+        const items = await res.json();
+
+        if (items && items.length > 0) {
+          simContainer.style.display = "block";
+          simGrid.innerHTML = items.slice(0, 3).map(p => `
+            <div class="rec-card">
+              <h4>${p.name}</h4>
+              <div style="color: #ffb703; font-weight: bold; margin-bottom: 8px;">₹${p.price}</div>
+              <button class="btn-add" style="padding: 6px; font-size: 11px;" onclick="addToCart(${p.id})">Add to Cart</button>
+            </div>
+          `).join("");
+        }
+      } catch (err) {
+        console.log("Could not load similar products:", err);
+      }
+    }
+
+    /* --- Products Catalog & Reviews Aggregations --- */
+    async function fetchProductReviewSummary(productId) {
+      try {
+        const res = await fetch(API + `/products/${productId}/reviews`);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    }
+
+    async function loadProducts() {
+      const cat = document.getElementById("catFilter").value;
+      const inStock = document.getElementById("inStock").checked;
+      let url = API + "/products?in_stock_only=" + inStock;
+      if (cat) {
+        url += "&category=" + encodeURIComponent(cat);
+      }
+
+      try {
+        const res = await fetch(url);
+        const products = await res.json();
+        const grid = document.getElementById("productGrid");
+        grid.innerHTML = "";
+
+        for (const p of products) {
+          const reviewData = await fetchProductReviewSummary(p.id);
+          const avg = reviewData ? Number(reviewData.average_rating || 0).toFixed(1) : "0.0";
+          const count = reviewData ? (reviewData.total_reviews || 0) : 0;
+          const starsText = count > 0 ? `★ ${avg} (${count})` : "★ New";
+
+          grid.innerHTML += `
+            <div class="card">
+              <div>
+                <h3>${p.name}</h3>
+                <div class="rating-badge">${starsText}</div>
+                <p>${p.description || ''}</p>
+              </div>
+              <div>
+                <div class="price">₹${p.price}</div>
+                <div class="meta">${p.stock} IN STOCK • ${p.category}</div>
+                <button class="btn-add" onclick="addToCart(${p.id})">Add to Cart</button>
+                <button class="btn-reviews" onclick="openReviewModal(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Reviews & Write Review</button>
+              </div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.error("Failed to load products:", err);
+      }
+    }
+
+    /* --- Review Modal Handlers --- */
+    async function openReviewModal(productId, productName) {
+      activeReviewProductId = productId;
+      document.getElementById("modalProductName").innerText = productName + " - Reviews";
+      document.getElementById("reviewSummary").innerText = "Loading...";
+      const listContainer = document.getElementById("modalReviewsList");
+      listContainer.innerHTML = `<p style="color: #777; font-size: 12px;">Loading reviews...</p>`;
+      document.getElementById("reviewModal").style.display = "flex";
+
+      loadSimilarProducts(productId);
+
+      const data = await fetchProductReviewSummary(productId);
+      if (data && data.reviews && data.reviews.length > 0) {
+        document.getElementById("reviewSummary").innerText = `★ ${Number(data.average_rating).toFixed(1)} / 5.0 (${data.total_reviews} total reviews)`;
+        listContainer.innerHTML = data.reviews.map(r => `
+          <div class="review-bubble">
+            <div class="stars">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</div>
+            <div class="comment">${r.comment || "(No comment written)"}</div>
+          </div>
+        `).join("");
+      } else {
+        document.getElementById("reviewSummary").innerText = "No reviews yet. Be the first to review!";
+        listContainer.innerHTML = `<p style="color: #666; font-size: 13px; text-align: center;">No reviews available for this product.</p>`;
+      }
+    }
+
+    function closeReviewModal() {
+      document.getElementById("reviewModal").style.display = "none";
+      document.getElementById("reviewComment").value = "";
+      activeReviewProductId = null;
+    }
+
+    async function submitReviewFromModal() {
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      if (!token) {
+        alert("Please log in to submit a review.");
+        return;
+      }
+
+      const rating = parseInt(document.getElementById("reviewRating").value);
+      const comment = document.getElementById("reviewComment").value.trim();
+
+      if (!activeReviewProductId) return;
+
+      try {
+        const res = await fetch(API + "/reviews", {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            product_id: activeReviewProductId,
+            rating: rating,
+            comment: comment
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert("Review submitted successfully!");
+          closeReviewModal();
+          loadProducts();
+        } else {
+          alert(data.detail || "Failed to submit review.");
+        }
+      } catch (err) {
+        alert("Error connecting to server.");
+      }
+    }
+
+    async function addToCart(productId) {
+      let token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      if (!token) {
+        const inputToken = prompt("Please paste your JWT Access Token from /auth/login:");
+        if (inputToken) {
+          token = inputToken.trim();
+          localStorage.setItem("token", token);
+          startNotificationPolling();
+        } else {
+          return;
+        }
+      }
+
+      try {
+        const res = await fetch(API + "/cart/items", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ product_id: productId, quantity: 1 })
+        });
+
+        if (res.ok) {
+          alert("Item added to cart!");
+        } else {
+          const data = await res.json();
+          alert("Error: " + (data.detail || "Failed to add to cart."));
+        }
+      } catch (err) {
+        alert("Failed to connect to server. Is Uvicorn running?");
+      }
+    }
+
+    // Set token if not set
+    if (!localStorage.getItem("token")) {
+      localStorage.setItem("token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzg4OTUyOTkxLCJ0eXBlIjoiYWNjZXNzIn0.3lcVrAo9zqWGFW3mvZ5FQt4VYC-FwAJQ2218U4bQcUE");
+    }
+
+    // Initialize UI
+    loadProducts();
+    loadUserRecommendations();
+    startNotificationPolling();
+  </script>
+</body>
+</html>
