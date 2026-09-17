@@ -8,9 +8,11 @@ import math
 
 from database import get_db
 import models, schemas, security
+from subscription_guard import check_post_creation_limit
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 UPLOAD_DIR = "media/posts"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def save_uploaded_image(file: UploadFile, request: Request) -> str:
     ext = os.path.splitext(file.filename)[1]
@@ -85,7 +87,7 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
     post.likes_count = len(post.likes)
     return post
 
-# 4. Create Post with Image Upload
+# 4. Create Post with Image Upload & Subscription Limit Check
 @router.post("", response_model=schemas.PostOut, status_code=status.HTTP_201_CREATED)
 def create_post(
     request: Request,
@@ -95,6 +97,10 @@ def create_post(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(security.get_current_user),
 ):
+    # Enforce plan limits before allocating resources or writing to DB
+    image_count = 1 if (image and image.filename) else 0
+    check_post_creation_limit(db, current_user.id, image_count=image_count)
+
     image_url = None
     if image and image.filename:
         image_url = save_uploaded_image(image, request)
@@ -129,12 +135,15 @@ def update_post(
     if post.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this post")
 
+    # Enforce image limits on upload during update
+    if image and image.filename:
+        check_post_creation_limit(db, current_user.id, image_count=1)
+        post.image_url = save_uploaded_image(image, request)
+
     if title is not None:
         post.title = title
     if content is not None:
         post.content = content
-    if image and image.filename:
-        post.image_url = save_uploaded_image(image, request)
 
     db.commit()
     db.refresh(post)
