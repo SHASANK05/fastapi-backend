@@ -6,4 +6,4 @@ blog.db
 media/posts/*
 media/invoices/*
 !media/posts/.gitkeep
-!media/invoices/.gitkeep
+!media/invoices/.gitkeep 

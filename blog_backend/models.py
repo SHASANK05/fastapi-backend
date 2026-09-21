@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import (
     Column,
     Integer,
@@ -44,6 +44,14 @@ PLAN_LIMITS = {
 }
 
 
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def default_plan_expiry():
+    return datetime.now(timezone.utc) + timedelta(days=30)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -71,8 +79,8 @@ class SubscriptionPlan(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     plan_name = Column(Enum(PlanType), default=PlanType.BASIC, nullable=False)
-    start_date = Column(DateTime, default=datetime.utcnow)
-    end_date = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=30))
+    start_date = Column(DateTime, default=utc_now)
+    end_date = Column(DateTime, default=default_plan_expiry)
     is_active = Column(Integer, default=1)
 
     user = relationship("User", back_populates="subscription")
@@ -87,7 +95,7 @@ class BillingHistory(Base):
     price = Column(Float, nullable=False)
     transaction_id = Column(String(100), unique=True, nullable=False)
     invoice_path = Column(String(300), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     user = relationship("User", back_populates="billing_records")
 
@@ -98,9 +106,9 @@ class Post(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)
-    image_url = Column(String(300), nullable=True)  # <-- Image field
+    image_url = Column(String(300), nullable=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     author = relationship("User", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
@@ -114,10 +122,19 @@ class Comment(Base):
     post_id = Column(Integer, ForeignKey("posts.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     text = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     post = relationship("Post", back_populates="comments")
     user = relationship("User", back_populates="comments")
+
+    # Property alias so code using .content continues to work without schema breaks
+    @property
+    def content(self):
+        return self.text
+
+    @content.setter
+    def content(self, value):
+        self.text = value
 
 
 class Like(Base):

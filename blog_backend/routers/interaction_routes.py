@@ -1,67 +1,91 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from database import get_db
-import models, schemas, security
-from email_service import send_notification_email
+from models import User, Post, Like, Comment
+from security import get_current_user
+from notification_service import dispatch_post_activity_notification
 
-router = APIRouter(prefix="/posts/{post_id}", tags=["Comments & Likes"])
+router = APIRouter(prefix="/interactions", tags=["Interactions"])
 
-@router.post("/comments", response_model=schemas.CommentOut, status_code=status.HTTP_201_CREATED)
-def add_comment(
+
+class CommentCreate(BaseModel):
+    comment_text: str = Field(..., min_length=1, description="Text content of the comment")
+
+
+@router.post("/posts/{post_id}/like", status_code=status.HTTP_200_OK)
+def like_post(
     post_id: int,
-    comment_data: schemas.CommentCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(security.get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
-    new_comment = models.Comment(
-        post_id=post.id,
+    existing_like = (
+        db.query(Like)
+        .filter(Like.post_id == post_id, Like.user_id == current_user.id)
+        .first()
+    )
+    if existing_like:
+        db.delete(existing_like)
+        db.commit()
+        return {"message": "Post unliked"}
+
+    new_like = Like(post_id=post_id, user_id=current_user.id)
+    db.add(new_like)
+    db.commit()
+
+    # Trigger background email notification if someone else liked the post
+    post_author = post.author or db.query(User).filter(User.id == post.author_id).first()
+    if post_author and post_author.id != current_user.id:
+        dispatch_post_activity_notification(
+            background_tasks=background_tasks,
+            recipient_email=post_author.email,
+            recipient_username=post_author.username,
+            actor_username=current_user.username,
+            post_title=post.title,
+            activity_type="Liked",
+        )
+
+    return {"message": "Post liked"}
+
+
+@router.post("/posts/{post_id}/comment", status_code=status.HTTP_201_CREATED)
+def comment_post(
+    post_id: int,
+    comment_in: CommentCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    # Uses the 'text' column defined on the Comment model
+    new_comment = Comment(
+        post_id=post_id,
         user_id=current_user.id,
-        text=comment_data.text
+        text=comment_in.comment_text,
     )
     db.add(new_comment)
     db.commit()
     db.refresh(new_comment)
 
-    if post.author_id != current_user.id:
-        subject = f"New comment on your post '{post.title}'"
-        body = f"User @{current_user.username} commented: '{new_comment.text}'"
-        background_tasks.add_task(send_notification_email, post.author.email, subject, body)
+    # Trigger background email notification if someone else commented on the post
+    post_author = post.author or db.query(User).filter(User.id == post.author_id).first()
+    if post_author and post_author.id != current_user.id:
+        dispatch_post_activity_notification(
+            background_tasks=background_tasks,
+            recipient_email=post_author.email,
+            recipient_username=post_author.username,
+            actor_username=current_user.username,
+            post_title=post.title,
+            activity_type="Commented on",
+            comment_text=comment_in.comment_text,
+        )
 
-    return new_comment
-
-@router.post("/like")
-def toggle_like_post(
-    post_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(security.get_current_user),
-):
-    post = db.query(models.Post).filter(models.Post.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-
-    existing_like = db.query(models.Like).filter(
-        models.Like.post_id == post.id,
-        models.Like.user_id == current_user.id
-    ).first()
-
-    if existing_like:
-        db.delete(existing_like)
-        db.commit()
-        return {"detail": "Post unliked", "liked": False}
-    else:
-        new_like = models.Like(post_id=post.id, user_id=current_user.id)
-        db.add(new_like)
-        db.commit()
-
-        if post.author_id != current_user.id:
-            subject = f"New like on your post '{post.title}'"
-            body = f"User @{current_user.username} liked your post!"
-            background_tasks.add_task(send_notification_email, post.author.email, subject, body)
-
-        return {"detail": "Post liked", "liked": True}
+    return {"message": "Comment added successfully", "comment_id": new_comment.id}
