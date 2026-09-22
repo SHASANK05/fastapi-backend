@@ -107,13 +107,13 @@ class Post(Base):
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)
     image_url = Column(String(300), nullable=True)
+    views = Column(Integer, default=0, nullable=False)  # <-- Added views tracking
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=utc_now)
 
     author = relationship("User", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
     likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
-
 
 class Comment(Base):
     __tablename__ = "comments"

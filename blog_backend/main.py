@@ -4,6 +4,8 @@ import os
 from database import engine, Base
 import models
 from routers import auth_routes, post_routes, interaction_routes, subscription_routes
+from routers.dashboard_routes import router as dashboard_router
+from fastapi.middleware.cors import CORSMiddleware
 
 # Create all tables (including subscription_plans and billing_history)
 Base.metadata.create_all(bind=engine)
@@ -13,6 +15,13 @@ os.makedirs("media/posts", exist_ok=True)
 os.makedirs("media/invoices", exist_ok=True)
 
 app = FastAPI(title="Blog Management API", version="2.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount /media static directory (serves both /media/posts and /media/invoices)
 app.mount("/media", StaticFiles(directory="media"), name="media")
@@ -22,6 +31,7 @@ app.include_router(auth_routes.router)
 app.include_router(post_routes.router)
 app.include_router(interaction_routes.router)
 app.include_router(subscription_routes.router)
+app.include_router(dashboard_router)
 
 @app.get("/")
 def root():
