@@ -6,6 +6,7 @@ from sqlalchemy import (
     String,
     Text,
     Float,
+    Boolean,
     DateTime,
     ForeignKey,
     UniqueConstraint,
@@ -107,13 +108,14 @@ class Post(Base):
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)
     image_url = Column(String(300), nullable=True)
-    views = Column(Integer, default=0, nullable=False)  # <-- Added views tracking
+    views = Column(Integer, default=0, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=utc_now)
 
     author = relationship("User", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
     likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
+
 
 class Comment(Base):
     __tablename__ = "comments"
@@ -127,7 +129,6 @@ class Comment(Base):
     post = relationship("Post", back_populates="comments")
     user = relationship("User", back_populates="comments")
 
-    # Property alias so code using .content continues to work without schema breaks
     @property
     def content(self):
         return self.text
@@ -148,3 +149,18 @@ class Like(Base):
     user = relationship("User", back_populates="likes")
 
     __table_args__ = (UniqueConstraint("post_id", "user_id", name="unique_post_user_like"),)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    notification_type = Column(String(50), nullable=False)  # 'like', 'comment', 'subscription'
+    message = Column(String(255), nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    recipient = relationship("User", foreign_keys=[recipient_id])
+    actor = relationship("User", foreign_keys=[actor_id])

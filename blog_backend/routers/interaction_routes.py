@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, Post, Like, Comment
+from models import User, Post, Like, Comment, Notification
 from security import get_current_user
 from notification_service import dispatch_post_activity_notification
 
@@ -36,6 +36,17 @@ def like_post(
 
     new_like = Like(post_id=post_id, user_id=current_user.id)
     db.add(new_like)
+
+    # In-App Notification trigger: Notify author if someone else liked the post
+    if post.author_id != current_user.id:
+        in_app_notif = Notification(
+            recipient_id=post.author_id,
+            actor_id=current_user.id,
+            notification_type="like",
+            message=f"{current_user.username} liked your post '{post.title[:30]}...'"
+        )
+        db.add(in_app_notif)
+
     db.commit()
 
     # Trigger background email notification if someone else liked the post
@@ -65,13 +76,23 @@ def comment_post(
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
-    # Uses the 'text' column defined on the Comment model
     new_comment = Comment(
         post_id=post_id,
         user_id=current_user.id,
         text=comment_in.comment_text,
     )
     db.add(new_comment)
+
+    # In-App Notification trigger: Notify author if someone else commented
+    if post.author_id != current_user.id:
+        in_app_notif = Notification(
+            recipient_id=post.author_id,
+            actor_id=current_user.id,
+            notification_type="comment",
+            message=f"{current_user.username} commented on '{post.title[:30]}...'"
+        )
+        db.add(in_app_notif)
+
     db.commit()
     db.refresh(new_comment)
 

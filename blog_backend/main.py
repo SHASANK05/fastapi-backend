@@ -1,13 +1,20 @@
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-import os
-from database import engine, Base
-import models
-from routers import auth_routes, post_routes, interaction_routes, subscription_routes
-from routers.dashboard_routes import router as dashboard_router
 from fastapi.middleware.cors import CORSMiddleware
 
-# Create all tables (including subscription_plans and billing_history)
+from database import engine, Base
+import models
+from routers import (
+    auth_routes,
+    post_routes,
+    interaction_routes,
+    subscription_routes,
+    notification_routes,
+)
+from routers.dashboard_routes import router as dashboard_router
+
+# Create all tables (including notifications, subscription_plans, and billing_history)
 Base.metadata.create_all(bind=engine)
 
 # Ensure upload directories exist
@@ -15,6 +22,7 @@ os.makedirs("media/posts", exist_ok=True)
 os.makedirs("media/invoices", exist_ok=True)
 
 app = FastAPI(title="Blog Management API", version="2.0.0")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,7 +40,8 @@ app.include_router(post_routes.router)
 app.include_router(interaction_routes.router)
 app.include_router(subscription_routes.router)
 app.include_router(dashboard_router)
+app.include_router(notification_routes.router)
 
 @app.get("/")
 def root():
-    return {"message": "Blog Management API with Media, Search, and Billing is running"}
+    return {"message": "Blog Management API with Media, Search, Billing, and Notifications is running"}

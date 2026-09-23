@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel
 
 from database import get_db
-from models import User, SubscriptionPlan, BillingHistory, PlanType
+from models import User, SubscriptionPlan, BillingHistory, PlanType, Notification
 from security import get_current_user
 from invoice_service import generate_invoice_pdf
 
@@ -57,6 +57,17 @@ def subscribe_to_plan(
         invoice_path=invoice_path
     )
     db.add(billing)
+
+    # Trigger In-App Notification
+    sub_notif = Notification(
+        recipient_id=current_user.id,
+        actor_id=None,
+        notification_type="subscription",
+        message=f"Your subscription has been updated to the {req.plan_name.value.capitalize()} plan!"
+    )
+    db.add(sub_notif)
+
+    # Commit all changes atomically
     db.commit()
 
     filename = os.path.basename(invoice_path)
