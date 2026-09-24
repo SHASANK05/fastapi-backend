@@ -164,3 +164,14 @@ class Notification(Base):
 
     recipient = relationship("User", foreign_keys=[recipient_id])
     actor = relationship("User", foreign_keys=[actor_id])
+
+class ChatLog(Base):
+    __tablename__ = "chat_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Optional for guest queries
+    question = Column(Text, nullable=False)
+    ai_response = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=utc_now)
+
+    user = relationship("User", foreign_keys=[user_id])    

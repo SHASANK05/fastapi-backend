@@ -224,6 +224,127 @@
       backdrop-filter: blur(12px);
     }
     .chart-card h3 { margin: 0 0 16px 0; font-size: 16px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.3px; }
+
+    /* Floating AI Support Widget */
+    .chat-launcher {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #38bdf8);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      z-index: 9999;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .chat-launcher:hover { transform: scale(1.08); }
+
+    .chat-modal {
+      position: fixed;
+      bottom: 90px;
+      right: 24px;
+      width: 370px;
+      height: 520px;
+      background: #111827;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+    }
+    .chat-header {
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chat-header h4 { margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc; }
+    .chat-header span { font-size: 11px; color: #22c55e; display: block; margin-top: 2px; }
+    .chat-close-btn { background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; }
+
+    .chat-history {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .chat-msg {
+      max-width: 82%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .chat-msg.bot {
+      background: #1e293b;
+      color: #e2e8f0;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .chat-msg.user {
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .chat-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .chat-chip {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .chat-chip:hover { background: rgba(56, 189, 248, 0.25); }
+
+    .chat-input-area {
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      gap: 8px;
+    }
+    .chat-input-area input {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 13px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: #1e293b;
+      color: white;
+      outline: none;
+    }
+    .chat-input-area button {
+      background: #3b82f6;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -294,6 +415,34 @@
         <h3>Total Interaction Share</h3>
         <canvas id="pieChart" height="220"></canvas>
       </div>
+    </div>
+  </div>
+
+  <!-- Floating AI Support Launcher Button -->
+  <button class="chat-launcher" onclick="toggleChat()" title="Ask AI Support">🤖</button>
+
+  <!-- Floating AI Chat Modal -->
+  <div class="chat-modal" id="chatModal" onclick="event.stopPropagation()">
+    <div class="chat-header">
+      <div>
+        <h4>AI Assistant Support</h4>
+        <span>● Online & Ready</span>
+      </div>
+      <button class="chat-launcher" onclick="event.stopPropagation(); toggleChat();" title="Ask AI Support">🤖</button>
+    </div>
+    <div class="chat-history" id="chatHistory">
+      <div class="chat-msg bot">
+        Hi there! 👋 How can I help you navigate the blog platform today?
+        <div class="chat-chips">
+          <span class="chat-chip" onclick="sendQuickPrompt('How to create posts?')">Create Post</span>
+          <span class="chat-chip" onclick="sendQuickPrompt('How do subscriptions work?')">Subscriptions</span>
+          <span class="chat-chip" onclick="sendQuickPrompt('Explain analytics dashboard')">Analytics</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+        <input type="text" id="chatInput" placeholder="Ask about posts, billing, stats..." autocomplete="off" onkeydown="if(event.key==='Enter') handleChatSubmit(event)" />
+        <button type="button" onclick="handleChatSubmit(event)">Send</button>
     </div>
   </div>
 
@@ -402,6 +551,82 @@
       } catch (err) {
         console.error("Failed to mark all as read:", err);
       }
+    }
+
+    /* AI Support Chat Functions */
+    function toggleChat() {
+      const modal = document.getElementById("chatModal");
+      const isHidden = modal.style.display === "none" || modal.style.display === "";
+      modal.style.display = isHidden ? "flex" : "none";
+      if (isHidden) document.getElementById("chatInput").focus();
+    }
+
+    function sendQuickPrompt(promptText) {
+      const input = document.getElementById("chatInput");
+      if (input) input.value = promptText;
+      handleChatSubmit();
+    }
+
+    async function handleChatSubmit(e) {
+      if (e && typeof e.preventDefault === "function") {
+        e.preventDefault();
+      }
+
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      const history = document.getElementById("chatHistory");
+
+      // Append user bubble
+      const userBubble = document.createElement("div");
+      userBubble.className = "chat-msg user";
+      userBubble.innerText = text;
+      history.appendChild(userBubble);
+      input.value = "";
+      history.scrollTop = history.scrollHeight;
+
+      // Append temporary thinking placeholder
+      const botBubble = document.createElement("div");
+      botBubble.className = "chat-msg bot";
+      botBubble.innerText = "Thinking...";
+      history.appendChild(botBubble);
+      history.scrollTop = history.scrollHeight;
+
+      try {
+        const token = getToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = "Bearer " + token;
+
+        const res = await fetch("http://127.0.0.1:8001/api/ai-support/", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ message: text })
+        });
+
+        if (!res.ok) throw new Error("Support service offline");
+        const data = await res.json();
+
+        // Render bold text
+        botBubble.innerHTML = data.reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Render interactive followup quick chips
+        if (data.suggested_actions && data.suggested_actions.length > 0) {
+          const chipContainer = document.createElement("div");
+          chipContainer.className = "chat-chips";
+          data.suggested_actions.forEach(act => {
+            const chip = document.createElement("span");
+            chip.className = "chat-chip";
+            chip.innerText = act;
+            chip.onclick = () => sendQuickPrompt(act);
+            chipContainer.appendChild(chip);
+          });
+          botBubble.appendChild(chipContainer);
+        }
+      } catch (err) {
+        botBubble.innerText = "Sorry, I couldn't reach the support service right now. Please verify your backend server is running.";
+      }
+      history.scrollTop = history.scrollHeight;
     }
 
     async function loadDashboard() {

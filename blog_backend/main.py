@@ -13,16 +13,19 @@ from routers import (
     notification_routes,
 )
 from routers.dashboard_routes import router as dashboard_router
+from routers.ai_support_routes import router as ai_support_router
 
-# Create all tables (including notifications, subscription_plans, and billing_history)
+# 1. Create all database tables (including ChatLog, Notification, etc.)
 Base.metadata.create_all(bind=engine)
 
-# Ensure upload directories exist
+# 2. Ensure upload directories exist
 os.makedirs("media/posts", exist_ok=True)
 os.makedirs("media/invoices", exist_ok=True)
 
+# 3. Instantiate FastAPI application first
 app = FastAPI(title="Blog Management API", version="2.0.0")
 
+# 4. CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,17 +34,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount /media static directory (serves both /media/posts and /media/invoices)
+# 5. Mount static directories
 app.mount("/media", StaticFiles(directory="media"), name="media")
 
-# Include routers
+# 6. Register all application routers
 app.include_router(auth_routes.router)
 app.include_router(post_routes.router)
 app.include_router(interaction_routes.router)
 app.include_router(subscription_routes.router)
 app.include_router(dashboard_router)
 app.include_router(notification_routes.router)
+app.include_router(ai_support_router)
+
 
 @app.get("/")
 def root():
-    return {"message": "Blog Management API with Media, Search, Billing, and Notifications is running"}
+    return {
+        "message": "Blog Management API with Media, Search, Billing, Notifications, and AI Support is running"
+    }
