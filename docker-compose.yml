@@ -1,0 +1,68 @@
+
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: ccs_mysql_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: credit_card_db
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ccs_network
+
+  django:
+    build: ./backend_django
+    container_name: ccs_django_backend
+    restart: always
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=credit_card_db
+      - DB_USER=root
+      - DB_PASSWORD=root
+    depends_on:
+      - db
+    networks:
+      - ccs_network
+
+  fastapi:
+    build: ./backend_fastapi
+    container_name: ccs_fastapi_gateway
+    restart: always
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=mysql+pymysql://root:root@db:3306/credit_card_db
+    depends_on:
+      - db
+    networks:
+      - ccs_network
+
+  frontend:
+    build: ./frontend
+    container_name: ccs_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - django
+      - fastapi
+    networks:
+      - ccs_network
+
+volumes:
+  mysql_data:
+
+networks:
+  ccs_network:
+    driver: bridge

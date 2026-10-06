@@ -1,0 +1,138 @@
+{
+  "info": {
+    "_postman_id": "c1f7b0a8-2026-4d09-b9d9-ccpayment0001",
+    "name": "Credit Card Payment System API",
+    "description": "Postman collection covering Authentication, Card Management, and Payment Gateway Processing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"testuser_postman\",\n  \"password\": \"SecurePass123!\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/auth/register/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "auth", "register", ""]
+        }
+      }
+    },
+    {
+      "name": "Auth - Login (JWT)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.access) {",
+              "    pm.environment.set(\"jwt_access_token\", jsonData.access);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"shasank21\",\n  \"password\": \"your_password_here\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/auth/login/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "auth", "login", ""]
+        }
+      }
+    },
+    {
+      "name": "Cards - Add Card (Tokenized)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{jwt_access_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cardholder_name\": \"SHASANK S\",\n  \"card_number\": \"4111222233334444\",\n  \"expiry_month\": 12,\n  \"expiry_year\": 2028,\n  \"card_type\": \"Visa\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/cards/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "cards", ""]
+        }
+      }
+    },
+    {
+      "name": "Cards - List Saved Cards",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_access_token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8000/api/cards/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "cards", ""]
+        }
+      }
+    },
+    {
+      "name": "Payment - Authorize Transaction (FastAPI)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{jwt_access_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 1,\n  \"card_id\": 1,\n  \"merchant_name\": \"Amazon India\",\n  \"amount\": 1499.0,\n  \"cvv\": \"789\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8001/api/payments/process/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["api", "payments", "process", ""]
+        }
+      }
+    },
+    {
+      "name": "Payment - Transaction History",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_access_token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:8001/api/payments/transactions/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8001",
+          "path": ["api", "payments", "transactions", ""]
+        }
+      }
+    }
+  ]
+}
