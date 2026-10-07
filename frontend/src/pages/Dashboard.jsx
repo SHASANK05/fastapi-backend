@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, DJANGO_BASE_URL, FASTAPI_BASE_URL } from '../api';
-import { CreditCard, PlusCircle, Send, CheckCircle2, XCircle, LogOut, RefreshCw } from 'lucide-react';
+import { CreditCard, PlusCircle, Send, CheckCircle2, XCircle, LogOut, RefreshCw, IndianRupee, ShieldCheck } from 'lucide-react';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const [cards, setCards] = useState([]);
   const [transactions, setTransactions] = useState([]);
+
+  // Dashboard Summary State
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState(null);
 
   // Add Card form state
   const [cardholderName, setCardholderName] = useState('');
@@ -22,6 +27,23 @@ export default function Dashboard() {
   const [cvv, setCvv] = useState('789');
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [processing, setProcessing] = useState(false);
+
+  const fetchSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const res = await api.get(`${FASTAPI_BASE_URL}/dashboard/summary`);
+      setSummary(res.data);
+    } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setSummaryError('JWT Session expired or invalid. Please sign in again.');
+      } else {
+        setSummaryError('Unable to load analytics summary metrics.');
+      }
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
   const fetchCards = async () => {
     try {
@@ -45,6 +67,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    fetchSummary();
     fetchCards();
     fetchTransactions();
   }, []);
@@ -62,6 +85,7 @@ export default function Dashboard() {
       setCardNumber('');
       setCardholderName('');
       await fetchCards();
+      await fetchSummary();
     } catch (err) {
       setCardError(err.response?.data?.card_number?.[0] || 'Failed to save card. Check details.');
     }
@@ -80,6 +104,7 @@ export default function Dashboard() {
       });
       setPaymentStatus(res.data);
       await fetchTransactions();
+      await fetchSummary();
     } catch (err) {
       setPaymentStatus({
         status: 'FAILED',
@@ -117,270 +142,333 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* Main Container */}
-      <main className="mx-auto max-w-7xl p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="mx-auto max-w-7xl p-6 space-y-6">
         
-        {/* Left Column: Card Vault */}
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
-            <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400 mb-4">
-              <CreditCard className="mr-2 h-4 w-4" />
-              Saved Cards ({cards.length})
-            </h2>
-            
-            <div className="space-y-3">
-              {cards.length === 0 ? (
-                <p className="text-xs text-slate-500">No cards registered yet. Add a card below.</p>
-              ) : (
-                cards.map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => setSelectedCardId(c.id)}
-                    className={`cursor-pointer rounded-xl border p-4 transition ${
-                      selectedCardId === c.id
-                        ? 'border-indigo-500 bg-indigo-950/20'
-                        : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center text-xs font-mono text-slate-400">
-                      <span>{c.card_type}</span>
-                      <span>{c.expiry_month}/{c.expiry_year}</span>
-                    </div>
-                    <div className="my-2 font-mono text-lg tracking-widest text-slate-100">
-                      {c.masked_card}
-                    </div>
-                    <div className="text-xs font-medium text-slate-400 uppercase">
-                      {c.cardholder_name}
-                    </div>
-                  </div>
-                ))
-              )}
+        {/* JWT Error Banner */}
+        {summaryError && (
+          <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-xs text-rose-300 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <XCircle className="h-4 w-4 text-rose-400" />
+              <span>{summaryError}</span>
             </div>
+            <button onClick={fetchSummary} className="underline hover:text-rose-200">Retry</button>
           </div>
+        )}
 
-          {/* Add Card Form */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
-            <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400 mb-4">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add New Card
-            </h2>
-            {cardError && (
-              <div className="mb-3 rounded-lg bg-red-500/10 border border-red-500/20 p-2.5 text-xs text-red-400">
-                {cardError}
+        {/* TOP ROW: 4 Summary Stats Cards with Skeleton Loading */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {summaryLoading ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 animate-pulse space-y-3">
+                <div className="h-3.5 bg-slate-800 rounded w-1/2"></div>
+                <div className="h-7 bg-slate-800 rounded w-3/4"></div>
+                <div className="h-2.5 bg-slate-800 rounded w-1/3"></div>
               </div>
-            )}
-            <form onSubmit={handleAddCard} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Cardholder Name</label>
-                <input
-                  type="text"
-                  required
-                  value={cardholderName}
-                  onChange={(e) => setCardholderName(e.target.value)}
-                  placeholder="e.g. SHASANK S"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1">Card Number (16 Digits)</label>
-                <input
-                  type="text"
-                  required
-                  maxLength={16}
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  placeholder="4111222233334444"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 font-mono text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-400 mb-1">Expiry Month</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
-                    required
-                    value={expiryMonth}
-                    onChange={(e) => setExpiryMonth(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">Expiry Year</label>
-                  <input
-                    type="number"
-                    min="2026"
-                    max="2040"
-                    required
-                    value={expiryYear}
-                    onChange={(e) => setExpiryYear(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="mt-2 w-full rounded-lg bg-indigo-600 py-2.5 font-semibold text-white hover:bg-indigo-500 transition"
-              >
-                Save Card Securely
-              </button>
-            </form>
-          </div>
-        </section>
-
-        {/* Center Column: Payment Simulation Terminal */}
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
-            <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400 mb-4">
-              <Send className="mr-2 h-4 w-4" />
-              FastAPI Payment Terminal
-            </h2>
-            <form onSubmit={handleProcessPayment} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Select Active Card</label>
-                <select
-                  value={selectedCardId}
-                  onChange={(e) => setSelectedCardId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
-                  disabled={cards.length === 0}
-                >
-                  {cards.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.masked_card} ({c.card_type}) - {c.cardholder_name}
-                    </option>
-                  ))}
-                </select>
+            ))
+          ) : summary ? (
+            <>
+              {/* Card 1: Total Spent */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Spent</p>
+                <p className="text-2xl font-extrabold text-white mt-1.5">
+                  ₹{summary.total_amount_spent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">Across all authorized transactions</p>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Merchant Name</label>
-                <input
-                  type="text"
-                  required
-                  value={merchantName}
-                  onChange={(e) => setMerchantName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
-                />
+              {/* Card 2: Available Credit */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">Available Credit</p>
+                <p className="text-2xl font-extrabold text-emerald-400 mt-1.5">
+                  ₹{summary.available_credit_limit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">Active revolving limit</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1">Amount (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 font-mono text-white focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">CVV (Simulated)</label>
-                  <input
-                    type="password"
-                    maxLength={4}
-                    required
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value)}
-                    placeholder="789"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 font-mono text-white focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
+              {/* Card 3: Total Transactions */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+                <p className="text-xs font-bold uppercase tracking-wider text-sky-400">Total Transactions</p>
+                <p className="text-2xl font-extrabold text-white mt-1.5">{summary.total_transactions}</p>
+                <p className="text-[11px] text-slate-500 mt-1">Processed count</p>
               </div>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-400 space-y-1">
-                <p className="font-semibold text-slate-300">Simulation Scenarios:</p>
-                <p>• Standard input (e.g. CVV 789, ₹1,499) → <span className="text-emerald-400">SUCCESS</span></p>
-                <p>• CVV <strong>000</strong> → <span className="text-rose-400">FAILS: Invalid CVV</span></p>
-                <p>• Amount &gt; <strong>₹50,000</strong> → <span className="text-rose-400">FAILS: Limit Exceeded</span></p>
+              {/* Card 4: This Month Spending */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-400">This Month Spending</p>
+                <p className="text-2xl font-extrabold text-amber-400 mt-1.5">
+                  ₹{summary.current_month_spending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">Current billing cycle</p>
               </div>
+            </>
+          ) : null}
+        </div>
 
-              <button
-                type="submit"
-                disabled={processing || cards.length === 0}
-                className="w-full rounded-lg bg-emerald-600 py-3 font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition disabled:opacity-50"
-              >
-                {processing ? 'Authorizing with Gateway...' : `Authorize ₹${amount || '0'} Transaction`}
-              </button>
-            </form>
-
-            {/* Live Gateway Receipt */}
-            {paymentStatus && (
-              <div className={`mt-4 rounded-xl border p-4 text-xs ${
-                paymentStatus.status === 'SUCCESS'
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                  : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-              }`}>
-                <div className="flex items-center space-x-2 font-bold mb-1">
-                  {paymentStatus.status === 'SUCCESS' ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-rose-400" />
-                  )}
-                  <span>Transaction {paymentStatus.status}</span>
-                </div>
-                {paymentStatus.reference_id && (
-                  <p className="font-mono text-[11px] text-slate-400">Ref: {paymentStatus.reference_id}</p>
-                )}
-                {paymentStatus.failure_reason && (
-                  <p className="mt-1 text-rose-300">{paymentStatus.failure_reason}</p>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Right Column: Transaction History */}
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Transaction Ledger
+        {/* 3-Column Layout: Cards, Terminal, History */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Left Column: Card Vault */}
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+              <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400 mb-4">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Saved Cards ({cards.length})
               </h2>
-              <button
-                onClick={fetchTransactions}
-                className="text-xs text-indigo-400 hover:text-indigo-300 transition"
-              >
-                Refresh
-              </button>
+              
+              <div className="space-y-3">
+                {cards.length === 0 ? (
+                  <p className="text-xs text-slate-500">No cards registered yet. Add a card below.</p>
+                ) : (
+                  cards.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => setSelectedCardId(c.id)}
+                      className={`cursor-pointer rounded-xl border p-4 transition ${
+                        selectedCardId === c.id
+                          ? 'border-indigo-500 bg-indigo-950/20'
+                          : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center text-xs font-mono text-slate-400">
+                        <span>{c.card_type}</span>
+                        <span>{c.expiry_month}/{c.expiry_year}</span>
+                      </div>
+                      <div className="my-2 font-mono text-lg tracking-widest text-slate-100">
+                        {c.masked_card}
+                      </div>
+                      <div className="text-xs font-medium text-slate-400 uppercase">
+                        {c.cardholder_name}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
-            <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
-              {transactions.length === 0 ? (
-                <p className="text-xs text-slate-500">No payment records found.</p>
-              ) : (
-                transactions.map((t) => (
-                  <div
-                    key={t.transaction_id}
-                    className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs"
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-slate-200">{t.merchant}</span>
-                      <span className="font-mono font-bold text-slate-100">₹{t.amount.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[11px] text-slate-400">
-                      <span className="font-mono">{t.reference_id}</span>
-                      <span className={`font-semibold px-2 py-0.5 rounded ${
-                        t.status === 'SUCCESS'
-                          ? 'bg-emerald-500/10 text-emerald-400'
-                          : 'bg-rose-500/10 text-rose-400'
-                      }`}>
-                        {t.status}
-                      </span>
-                    </div>
-                    {t.failure_reason && (
-                      <p className="mt-1 text-[10px] text-rose-400/80">{t.failure_reason}</p>
-                    )}
+            {/* Add Card Form */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+              <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400 mb-4">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add New Card
+              </h2>
+              {cardError && (
+                <div className="mb-3 rounded-lg bg-red-500/10 border border-red-500/20 p-2.5 text-xs text-red-400">
+                  {cardError}
+                </div>
+              )}
+              <form onSubmit={handleAddCard} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1">Cardholder Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={cardholderName}
+                    onChange={(e) => setCardholderName(e.target.value)}
+                    placeholder="e.g. SHASANK S"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">Card Number (16 Digits)</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={16}
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(e.target.value)}
+                    placeholder="4111222233334444"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 font-mono text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-slate-400 mb-1">Expiry Month</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="12"
+                      required
+                      value={expiryMonth}
+                      onChange={(e) => setExpiryMonth(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
+                    />
                   </div>
-                ))
+                  <div>
+                    <label className="block text-slate-400 mb-1">Expiry Year</label>
+                    <input
+                      type="number"
+                      min="2026"
+                      max="2040"
+                      required
+                      value={expiryYear}
+                      onChange={(e) => setExpiryYear(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="mt-2 w-full rounded-lg bg-indigo-600 py-2.5 font-semibold text-white hover:bg-indigo-500 transition"
+                >
+                  Save Card Securely
+                </button>
+              </form>
+            </div>
+          </section>
+
+          {/* Center Column: Payment Simulation Terminal */}
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+              <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400 mb-4">
+                <Send className="mr-2 h-4 w-4" />
+                FastAPI Payment Terminal
+              </h2>
+              <form onSubmit={handleProcessPayment} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1">Select Active Card</label>
+                  <select
+                    value={selectedCardId}
+                    onChange={(e) => setSelectedCardId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
+                    disabled={cards.length === 0}
+                  >
+                    {cards.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.masked_card} ({c.card_type}) - {c.cardholder_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1">Merchant Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={merchantName}
+                    onChange={(e) => setMerchantName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1">Amount (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 font-mono text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1">CVV (Simulated)</label>
+                    <input
+                      type="password"
+                      maxLength={4}
+                      required
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value)}
+                      placeholder="789"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 font-mono text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-400 space-y-1">
+                  <p className="font-semibold text-slate-300">Simulation Scenarios:</p>
+                  <p>Standard input (e.g. CVV 789, ₹1,499) → <span className="text-emerald-400">SUCCESS</span></p>
+                  <p>CVV <strong>000</strong> → <span className="text-rose-400">FAILS: Invalid CVV</span></p>
+                  <p>Amount &gt; <strong>₹50,000</strong> → <span className="text-rose-400">FAILS: Limit Exceeded</span></p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={processing || cards.length === 0}
+                  className="w-full rounded-lg bg-emerald-600 py-3 font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition disabled:opacity-50"
+                >
+                  {processing ? 'Authorizing with Gateway...' : `Authorize ₹${amount || '0'} Transaction`}
+                </button>
+              </form>
+
+              {/* Live Gateway Receipt */}
+              {paymentStatus && (
+                <div className={`mt-4 rounded-xl border p-4 text-xs ${
+                  paymentStatus.status === 'SUCCESS'
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                    : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                }`}>
+                  <div className="flex items-center space-x-2 font-bold mb-1">
+                    {paymentStatus.status === 'SUCCESS' ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-rose-400" />
+                    )}
+                    <span>Transaction {paymentStatus.status}</span>
+                  </div>
+                  {paymentStatus.reference_id && (
+                    <p className="font-mono text-[11px] text-slate-400">Ref: {paymentStatus.reference_id}</p>
+                  )}
+                  {paymentStatus.failure_reason && (
+                    <p className="mt-1 text-rose-300">{paymentStatus.failure_reason}</p>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        </section>
+          </section>
 
+          {/* Right Column: Transaction History */}
+          <section className="space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="flex items-center text-sm font-bold tracking-wide uppercase text-indigo-400">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Transaction Ledger
+                </h2>
+                <button
+                  onClick={() => { fetchTransactions(); fetchSummary(); }}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 transition"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
+                {transactions.length === 0 ? (
+                  <p className="text-xs text-slate-500">No payment records found.</p>
+                ) : (
+                  transactions.map((t) => (
+                    <div
+                      key={t.transaction_id}
+                      className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs"
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-slate-200">{t.merchant}</span>
+                        <span className="font-mono font-bold text-slate-100">₹{t.amount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] text-slate-400">
+                        <span className="font-mono">{t.reference_id}</span>
+                        <span className={`font-semibold px-2 py-0.5 rounded ${
+                          t.status === 'SUCCESS'
+                            ? 'bg-emerald-500/10 text-emerald-400'
+                            : 'bg-rose-500/10 text-rose-400'
+                        }`}>
+                          {t.status}
+                        </span>
+                      </div>
+                      {t.failure_reason && (
+                        <p className="mt-1 text-[10px] text-rose-400/80">{t.failure_reason}</p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
+        </div>
       </main>
     </div>
   );

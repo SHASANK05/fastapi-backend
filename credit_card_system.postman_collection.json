@@ -7,6 +7,35 @@
   },
   "item": [
     {
+  "name": "Dashboard - Usage Summary",
+  "request": {
+    "method": "GET",
+    "header": [
+      {
+        "key": "Authorization",
+        "value": "Bearer {{jwt_access_token}}"
+      }
+    ],
+    "url": {
+      "raw": "http://localhost:8001/dashboard/summary",
+      "protocol": "http",
+      "host": ["localhost"],
+      "port": "8001",
+      "path": ["dashboard", "summary"]
+    }
+  },
+  "response": []
+},
+    {
+      "name": "Dashboard - Transaction History",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_access_token}}"
+
+    {
       "name": "Auth - Register",
       "request": {
         "method": "POST",
@@ -131,6 +160,7 @@
           "host": ["localhost"],
           "port": "8001",
           "path": ["api", "payments", "transactions", ""]
+
         }
       }
     }
