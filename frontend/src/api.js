@@ -29,3 +29,19 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Admin Fraud Review APIs (FastAPI Gateway)
+export const getFlaggedTransactions = async (limit = 50, offset = 0) => {
+  const res = await api.get(`${FASTAPI_BASE_URL}/api/admin/transactions/flagged/`, {
+    params: { limit, offset }
+  });
+  return res.data;
+};
+
+export const reviewTransaction = async (transactionId, action, notes = '') => {
+  const res = await api.post(
+    `${FASTAPI_BASE_URL}/api/admin/transactions/${transactionId}/review/`,
+    { action, notes }
+  );
+  return res.data;
+};

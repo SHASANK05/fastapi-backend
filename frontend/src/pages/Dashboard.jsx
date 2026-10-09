@@ -4,6 +4,7 @@ import { api, DJANGO_BASE_URL, FASTAPI_BASE_URL } from '../api';
 import { CreditCard, PlusCircle, Send, CheckCircle2, XCircle, LogOut, RefreshCw, IndianRupee, ShieldCheck } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 
 export default function Dashboard() {
@@ -78,6 +79,12 @@ export default function Dashboard() {
       root.classList.remove('dark');
     }
   }, [theme]);
+
+  useEffect(() => {
+    fetchCards();
+    fetchTransactions();
+    fetchSummary();
+  }, []);
 
   const handleAddCard = async (e) => {
     e.preventDefault();
@@ -159,6 +166,15 @@ return (
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
+            {user?.role === 'ADMIN' && (
+            <Link
+              to="/admin/fraud"
+              className="flex items-center space-x-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-500/20 transition"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Fraud Center</span>
+            </Link>
+      )}
 
             <button
               onClick={logout}

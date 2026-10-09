@@ -1,6 +1,9 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -115,3 +118,43 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+
+security = HTTPBearer()
+
+# Must match Django's settings.SECRET_KEY
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-django-secret-key-here")
+ALGORITHM = "HS256"
+
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session token has expired. Please sign in again."
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate authentication credentials."
+        )
+
+
+def require_roles(*allowed_roles: str):
+    """
+    Enforces RBAC on FastAPI endpoints.
+    Usage: Depends(require_roles('ADMIN', 'SUPPORT'))
+    """
+    def role_guard(current_user: dict = Depends(get_current_user)) -> dict:
+        user_role = current_user.get("role")
+        if user_role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access forbidden: requires one of {list(allowed_roles)}. Current role: {user_role}"
+            )
+        return current_user
+    return role_guard

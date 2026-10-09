@@ -6,11 +6,15 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, extract
+from fraud_engine import evaluate_transaction_risk
 
 from database import engine, get_db, Base
 import models
 import schemas
 from auth import get_current_user_id
+from auth import get_current_user, require_roles
+from auth import require_roles
+from auth import get_current_user, get_current_user_id, require_roles
 
 # Create payment_transactions table automatically if not present
 Base.metadata.create_all(bind=engine)
@@ -25,6 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/admin/health-check")
+def admin_only_check(user: dict = Depends(require_roles("ADMIN"))):
+    return {"status": "ok", "message": f"Welcome Admin {user.get('username')}"}
 
 @app.post("/api/payments/process/", response_model=schemas.PaymentResponse)
 def process_payment(
@@ -44,18 +51,18 @@ def process_payment(
             detail="Card not found or does not belong to the user"
         )
 
-    # Simulation logic:
-    # 1. CVV '000' triggers simulated bank authorization failure
-    # 2. Transaction amounts above ₹50,000 trigger simulated limit failure
-    is_success = True
-    failure_reason = None
+    # Run through Fraud Engine
+    risk_assessment = evaluate_transaction_risk(
+        db=db,
+        card_id=card.id,
+        user_id=user_id,
+        amount=payload.amount,
+        cvv=payload.cvv,
+    )
 
-    if payload.cvv == "000":
-        is_success = False
-        failure_reason = "Payment rejected: Invalid CVV / Bank authorization failed."
-    elif payload.amount > 50000:
-        is_success = False
-        failure_reason = "Transaction limit exceeded: Max transaction limit is ₹50,000."
+    is_success = risk_assessment.is_allowed
+    failure_reason = risk_assessment.reason
+    txn_status = risk_assessment.status
 
     txn = models.Transaction(
         user_id=user_id,
@@ -190,3 +197,64 @@ def get_dashboard_summary(
         available_credit_limit=round(float(available_limit), 2),
         last_5_transactions=last_5
     )
+
+@app.get(
+    "/api/admin/transactions/flagged/",
+    response_model=schemas.FlaggedTransactionsResponse,
+    dependencies=[Depends(require_roles("ADMIN"))],
+)
+def get_flagged_transactions(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Retrieve all flagged or failed transactions for administrative review."""
+    query = (
+        db.query(models.Transaction)
+        .filter(models.Transaction.status.in_(["FAILED", "FLAGGED_FRAUD"]))
+        .order_by(models.Transaction.created_at.desc())
+    )
+    total = query.count()
+    records = query.offset(offset).limit(limit).all()
+
+    return {
+        "total_count": total,
+        "transactions": records
+    }
+
+
+@app.post(
+    "/api/admin/transactions/{transaction_id}/review/",
+    dependencies=[Depends(require_roles("ADMIN"))],
+)
+def review_transaction(
+    transaction_id: int,
+    payload: schemas.ReviewTransactionRequest,
+    current_admin: dict = Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db)
+):
+    """Allows an administrator to mark a suspicious transaction as reviewed."""
+    txn = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    if payload.action not in ["RESOLVED", "CONFIRMED_FRAUD"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid action. Must be 'RESOLVED' or 'CONFIRMED_FRAUD'"
+        )
+
+    admin_username = current_admin.get("username", "admin")
+    txn.status = payload.action
+    txn.failure_reason = f"[{payload.action} by {admin_username}] Note: {payload.notes or 'None'}"
+
+    db.commit()
+    db.refresh(txn)
+
+    return {
+        "status": "success",
+        "transaction_id": txn.id,
+        "new_status": txn.status,
+        "reviewed_by": admin_username,
+        "audit_note": txn.failure_reason
+    }
