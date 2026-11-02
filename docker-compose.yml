@@ -1,0 +1,89 @@
+﻿
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: shopease_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: shopease_user
+      MYSQL_PASSWORD: shopease_password
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth_service:
+    build: ./services/auth_service
+    container_name: shopease_auth
+    restart: always
+    ports:
+      - "8101:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  user_service:
+    build: ./services/user_service
+    container_name: shopease_user
+    restart: always
+    ports:
+      - "8102:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  product_service:
+    build: ./services/product_service
+    container_name: shopease_product
+    restart: always
+    ports:
+      - "8103:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  payment_service:
+    build: ./services/payment_service
+    container_name: shopease_payment
+    restart: always
+    ports:
+      - "8105:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  order_service:
+    build: ./services/order_service
+    container_name: shopease_order
+    restart: always
+    ports:
+      - "8104:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      product_service:
+        condition: service_started
+      payment_service:
+        condition: service_started
+
+  api_gateway:
+    build: ./services/api_gateway
+    container_name: shopease_gateway
+    restart: always
+    ports:
+      - "8100:8000"
+    depends_on:
+      - auth_service
+      - user_service
+      - product_service
+      - order_service
+      - payment_service
+
+volumes:
+  mysql_data:
